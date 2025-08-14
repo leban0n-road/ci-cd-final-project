@@ -1,0 +1,54 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cleanup
+spec:
+  description: |
+    Task 4 — Clean the shared workspace so each run starts from a known-good state.
+    This should normally run before git-clone in the pipeline.
+  workspaces:
+    - name: output
+      description: Shared workspace used across tasks (e.g., bound to git-clone's output)
+  steps:
+    - name: cleanup
+      image: busybox:1.36
+      workingDir: $(workspaces.output.path)
+      script: |
+        #!/bin/sh
+        set -eux
+        # Remove all files/folders in the workspace.
+        # If you bind the same PVC across runs, this guarantees a fresh state.
+        rm -rf ./*
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: nose-test
+spec:
+  description: |
+    Task 5 — Install dependencies and run Python unit tests with nose.
+    Assumes the repository has already been cloned into the shared workspace.
+  workspaces:
+    - name: output
+      description: Repository source code workspace (produced by git-clone)
+  steps:
+    - name: run-nose-tests
+      image: python:3.9-slim
+      workingDir: $(workspaces.output.path)
+      env:
+        - name: PIP_DISABLE_PIP_VERSION_CHECK
+          value: "1"
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+      script: |
+        #!/usr/bin/env bash
+        set -euxo pipefail
+
+        # Upgrade pip and install project dependencies if present
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+        # Install nose and run tests (adjust path if your tests are not auto-discovered)
+        pip install nose
+        nosetests -v
