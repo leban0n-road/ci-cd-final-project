@@ -1,0 +1,37 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # If you have a requirements.txt, install it first (non-fatal if missing)
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install flake8 nose
+
+      # ---- Task 2: Linting step (required snippet) ----
+      - name: Lint with flake8
+        run: |
+          flake8 service --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      # ---- Task 3: Test step (required snippet) ----
+      - name: Run tests
+        run: |
+          nosetests
